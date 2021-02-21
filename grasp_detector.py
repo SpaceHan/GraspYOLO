@@ -17,6 +17,7 @@ class GraspDetector():
         self.classes = self._get_classes(class_path)
         self.num_classes = len(self.classes)
         self.detector = self._get_model()
+        self.grasp_length = 32
         self.score = 0.8
 
     def _get_model(self):
@@ -137,7 +138,7 @@ class GraspDetector():
             real_grasp_data.append([grasp_x, grasp_y, grasp_d, grasp_theta, grasp_class])
         real_grasp_data = np.array(real_grasp_data)
 
-        real_grasp_data = real_grasp_data[real_grasp_data[:, 2] > 20]  # 筛选：抓取长度大于32像素；
+        real_grasp_data = real_grasp_data[real_grasp_data[:, 2] > self.grasp_length]  # 筛选抓取长度；
         return real_grasp_data
 
     def _draw_grasps_in_image(self, im_path, grasps):
@@ -178,9 +179,15 @@ class GraspDetector():
 
         return img
 
-    def predict_an_image(self, image_path):
+    def predict_an_image(self, image_path, show_feats = True):
         img_data = self._get_single_image_data(image_path)
         output = self.session.run(self.detector.output, feed_dict={self.detector.input: img_data})
+        # 显示x、y、d、sin、cos、prob的特征图
+        if show_feats:
+            for i in range(6):
+                plt.matshow(output[0, :, :, i], cmap=plt.cm.Blues)
+                plt.show()
+        # 根据网络输出计算抓取
         grasps = self._compute_real_grasp(output, 0, self.score)
 
         print("图片 {} 共有可用抓取 {} 个".format(image_path, len(grasps)))
@@ -213,6 +220,46 @@ class GraspDetector():
                 drawed_img.save(os.path.join(dst_folder, img_names[img_index_of_all]))
         pass
 
+    def predict_several_for_paper(self, folder, imgs):
+        num_img = len(imgs)
+        data_imgs = self._get_multi_imgs_data(folder, imgs)
+
+        feats = self.session.run(self.detector.output, feed_dict={self.detector.input: data_imgs})
+
+        fig, axes = plt.subplots(num_img, 6, figsize=(78, 78))
+        plt.subplots_adjust(left=0.05, right=0.95, wspace=2, hspace=0.1)
+
+        for i in range(num_img):
+            img = Image.open(os.path.join(folder, imgs[i]))
+            axes[i][0].imshow(img)
+            axes[i][0].set_xticks([])
+            axes[i][0].set_yticks([])
+            for j in range(5):
+                axes[i][1+j].matshow(feats[i, :, :, j], cmap=plt.cm.Blues)
+                axes[i][1+j].set_xticks([])
+                axes[i][1+j].set_yticks([])
+        # plt.savefig(..., dpi=150)
+        plt.show()
+        pass
+
+    def pred_save(self, src_folder, img_name, dst_folder):
+        img_data = self._get_single_image_data(os.path.join(src_folder, img_name))
+        feat = self.session.run(self.detector.output, feed_dict={self.detector.input: img_data})
+        fig, axes = plt.subplots(1, 7, figsize=(40, 10))
+        img = Image.open(os.path.join(src_folder, img_name))
+        # 原图
+        axes[0].imshow(img)
+        axes[0].set_xticks([])
+        axes[0].set_yticks([])
+        # 抓取概率map
+        axes[1].matshow(feat[0, :, :, 5], cmap=plt.cm.Blues)
+        axes[1].set_xticks([])
+        axes[1].set_yticks([])
+        for j in range(5):
+            axes[2 + j].matshow(feat[0, :, :, j], cmap=plt.cm.Blues)
+            axes[2 + j].set_xticks([])
+            axes[2+ j].set_yticks([])
+        plt.savefig(os.path.join(dst_folder, img_name), dpi=120)
 
 
 

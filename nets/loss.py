@@ -35,7 +35,8 @@ def grasp_loss(args, num_classes, ignore_thresh=.5, label_smoothing=0.1, print_l
     true_box = tf.boolean_mask(y_true[..., 0:4], object_mask_bool[..., 0])
 
     # 位置损失
-    x_loss = object_mask * tf.reduce_mean(tf.square(y_true[..., 0] - grasp_outputs[..., 0]))
+    # x_loss = object_mask * tf.reduce_mean(tf.square(y_true[..., 0] - grasp_outputs[..., 0]))
+    x_loss = object_mask * tf.reduce_mean(tf.square((y_true[..., 0] - grasp_outputs[..., 0]))^2)
     y_loss = object_mask * tf.reduce_mean(tf.square(y_true[..., 1] - grasp_outputs[..., 1]))
 
     # 长度损失
